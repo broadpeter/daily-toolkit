@@ -1,3 +1,6 @@
+
+
+Index · HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -19,11 +22,11 @@
   --text-muted: #8f8f8a;
   --radius: 14px;
 }
-
+ 
 * {
   box-sizing: border-box;
 }
-
+ 
 body {
   font-family: 'Inter', system-ui, sans-serif;
   max-width: 480px;
@@ -33,14 +36,14 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
-
+ 
 h1 {
   font-size: 21px;
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0 0 20px;
 }
-
+ 
 button {
   display: flex;
   align-items: center;
@@ -61,19 +64,19 @@ button {
   cursor: pointer;
   transition: opacity 0.12s ease;
 }
-
+ 
 button:active {
   background: none;
   opacity: 0.6;
   transform: none;
 }
-
+ 
 #scenarioList button::after {
   content: '\2192';
   color: var(--text-muted);
   margin-left: 12px;
 }
-
+ 
 .card {
   padding: 16px 18px;
   margin-bottom: 10px;
@@ -85,14 +88,14 @@ button:active {
   font-size: 15.5px;
   line-height: 1.6;
 }
-
+ 
 .card-detail {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.4;
   margin-top: 6px;
 }
-
+ 
 #backBtn {
   background: none;
   border: none;
@@ -105,24 +108,24 @@ button:active {
   padding: 0 0 18px 0;
   margin-bottom: 0;
 }
-
+ 
 #backBtn:active {
   background: none;
   opacity: 1;
   color: var(--text);
 }
-
+ 
 .import-link {
   color: var(--text-muted);
   font-size: 13px;
   text-decoration: underline;
   cursor: pointer;
 }
-
+ 
 .import-link:active {
   color: var(--text);
 }
-
+ 
 #homeHeader {
   display: flex;
   align-items: center;
@@ -131,34 +134,34 @@ button:active {
   gap: 8px;
   margin-bottom: 16px;
 }
-
+ 
 #homeHeader h1 {
   margin: 0;
 }
-
+ 
 .add-csv-controls {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-
+ 
 .add-csv-label {
   color: var(--text-muted);
   font-size: 13px;
 }
-
+ 
 .add-csv-sep {
   color: var(--border);
   font-size: 13px;
 }
-
+ 
 .url-row {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
 }
-
+ 
 #csvUrlInput {
   flex: 1;
   min-width: 0;
@@ -170,7 +173,7 @@ button:active {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-
+ 
 .url-load-btn {
   display: inline;
   width: auto;
@@ -187,7 +190,7 @@ button:active {
   white-space: nowrap;
   cursor: pointer;
 }
-
+ 
 #emptyState {
   padding: 28px 0;
   color: var(--text-muted);
@@ -197,7 +200,7 @@ button:active {
 </style>
 </head>
 <body>
-
+ 
   <div id="homeView">
     <div id="homeHeader">
       <h1>Toolkit</h1>
@@ -218,22 +221,31 @@ button:active {
       No data yet — import a CSV to get started.
     </div>
   </div>
-
+ 
   <div id="scenarioView" style="display:none;">
     <button id="backBtn">&larr; Back</button>
     <h1 id="scenarioTitle"></h1>
     <div id="cardList"></div>
   </div>
-
+ 
 <script>
   // ---- Data shape: array of { scenario: string, text: string, detail?: string } ----
   // CSV columns expected: scenario,text,detail   (detail is optional — leave blank if not needed)
-
+ 
   const STORAGE_KEY = 'toolkitData';
+  const CSV_URL_KEY = 'toolkitCsvUrl';
   let data = loadData();
-
+ 
   renderHome();
-
+ 
+  // Silently try refreshing from the last-used URL in the background.
+  // If it fails (offline, URL removed, etc.) the current data just stays as-is.
+  const savedUrl = localStorage.getItem(CSV_URL_KEY);
+  if (savedUrl) {
+    document.getElementById('csvUrlInput').value = savedUrl;
+    loadCsvFromUrl(savedUrl, true);
+  }
+ 
   document.getElementById('fileInput').addEventListener('change', handleFile);
   document.getElementById('backBtn').addEventListener('click', renderHome);
   document.getElementById('loadUrlBtn').addEventListener('click', () => {
@@ -247,11 +259,11 @@ button:active {
     const row = document.getElementById('urlRow');
     row.style.display = (row.style.display === 'none') ? 'flex' : 'none';
   });
-
+ 
   function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
-
+ 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -260,66 +272,69 @@ button:active {
       }
     });
   }
-
-  async function loadCsvFromUrl(url) {
+ 
+  async function loadCsvFromUrl(url, silent = false) {
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Network error: ' + response.status);
       const text = await response.text();
-
+ 
       Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
           applyParsedRows(results.data);
+          localStorage.setItem(CSV_URL_KEY, url);
         }
       });
     } catch (err) {
       console.error('Failed to load CSV:', err);
-      alert(
-        'Could not load CSV from that URL.\n\n' +
-        'If this is a Dropbox link, "www.dropbox.com" links are blocked for this kind of fetch — ' +
-        'try swapping that part of the URL for "dl.dropboxusercontent.com" instead (unofficial, but commonly works).'
-      );
+      if (!silent) {
+        alert(
+          'Could not load CSV from that URL.\n\n' +
+          'If this is a Dropbox link, "www.dropbox.com" links are blocked for this kind of fetch — ' +
+          'try swapping that part of the URL for "dl.dropboxusercontent.com" instead (unofficial, but commonly works).'
+        );
+      }
     }
   }
-
+ 
   function applyParsedRows(rows) {
     // Expect each row: { scenario: '...', text: '...', detail: '...' }
     data = rows.filter(row => row.scenario && row.text);
     saveData(data);
     renderHome();
   }
-
+ 
   function loadData() {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   }
-
+ 
   function saveData(d) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
   }
-
+ 
   function getScenarios() {
     return [...new Set(data.map(row => row.scenario))];
   }
-
+ 
   function renderHome() {
     document.getElementById('scenarioView').style.display = 'none';
     document.getElementById('homeView').style.display = 'block';
-
+ 
     const listEl = document.getElementById('scenarioList');
     const emptyEl = document.getElementById('emptyState');
     listEl.innerHTML = '';
-
+ 
     const scenarios = getScenarios();
-
+ 
     if (scenarios.length === 0) {
       emptyEl.style.display = 'block';
       return;
     }
     emptyEl.style.display = 'none';
-
+ 
     scenarios.forEach(scenario => {
       const btn = document.createElement('button');
       btn.textContent = scenario;
@@ -327,42 +342,43 @@ button:active {
       listEl.appendChild(btn);
     });
   }
-
+ 
   function renderScenario(scenario) {
     document.getElementById('homeView').style.display = 'none';
     document.getElementById('scenarioView').style.display = 'block';
     document.getElementById('scenarioTitle').textContent = scenario;
-
+ 
     const cardListEl = document.getElementById('cardList');
     cardListEl.innerHTML = '';
-
+ 
     data
       .filter(row => row.scenario === scenario)
       .forEach(row => {
         const card = document.createElement('div');
         card.className = 'card';
-
+ 
         const main = document.createElement('div');
         main.textContent = row.text;
         card.appendChild(main);
-
+ 
         if (row.detail && row.detail.trim() !== '') {
           const detail = document.createElement('div');
           detail.className = 'card-detail';
           detail.textContent = row.detail;
           card.appendChild(detail);
         }
-
+ 
         cardListEl.appendChild(card);
       });
   }
-
+ 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js');
     });
   }
 </script>
-
+ 
 </body>
 </html>
+ 
