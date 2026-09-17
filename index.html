@@ -114,7 +114,7 @@ button:active {
 
 .import-link {
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -127,11 +127,65 @@ button:active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 #homeHeader h1 {
   margin: 0;
+}
+
+.add-csv-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-csv-label {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.add-csv-sep {
+  color: var(--border);
+  font-size: 13px;
+}
+
+.url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+#csvUrlInput {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.url-load-btn {
+  display: inline;
+  width: auto;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-bottom: none;
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 #emptyState {
@@ -147,8 +201,17 @@ button:active {
   <div id="homeView">
     <div id="homeHeader">
       <h1>Toolkit</h1>
-      <label for="fileInput" class="import-link">Add CSV</label>
-      <input type="file" id="fileInput" accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,application/csv" style="display:none">
+      <div class="add-csv-controls">
+        <span class="add-csv-label">Add CSV:</span>
+        <label for="fileInput" class="import-link">Upload</label>
+        <span class="add-csv-sep">/</span>
+        <span class="import-link" id="showUrlToggle">Load from URL</span>
+        <input type="file" id="fileInput" accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,application/csv" style="display:none">
+      </div>
+    </div>
+    <div class="url-row" id="urlRow" style="display:none;">
+      <input type="text" id="csvUrlInput" placeholder="CSV URL">
+      <button id="loadUrlBtn" type="button" class="url-load-btn">Load</button>
     </div>
     <div id="scenarioList"></div>
     <div id="emptyState" style="display:none;">
@@ -173,6 +236,14 @@ button:active {
 
   document.getElementById('fileInput').addEventListener('change', handleFile);
   document.getElementById('backBtn').addEventListener('click', renderHome);
+  document.getElementById('loadUrlBtn').addEventListener('click', () => {
+    const url = document.getElementById('csvUrlInput').value.trim();
+    if (url) loadCsvFromUrl(url);
+  });
+  document.getElementById('showUrlToggle').addEventListener('click', () => {
+    const row = document.getElementById('urlRow');
+    row.style.display = (row.style.display === 'none') ? 'flex' : 'none';
+  });
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -182,12 +253,39 @@ button:active {
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        // Expect each row: { scenario: '...', text: '...' }
-        data = results.data.filter(row => row.scenario && row.text);
-        saveData(data);
-        renderHome();
+        applyParsedRows(results.data);
       }
     });
+  }
+
+  async function loadCsvFromUrl(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network error: ' + response.status);
+      const text = await response.text();
+
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          applyParsedRows(results.data);
+        }
+      });
+    } catch (err) {
+      console.error('Failed to load CSV:', err);
+      alert(
+        'Could not load CSV from that URL.\n\n' +
+        'If this is a Dropbox link, "www.dropbox.com" links are blocked for this kind of fetch — ' +
+        'try swapping that part of the URL for "dl.dropboxusercontent.com" instead (unofficial, but commonly works).'
+      );
+    }
+  }
+
+  function applyParsedRows(rows) {
+    // Expect each row: { scenario: '...', text: '...', detail: '...' }
+    data = rows.filter(row => row.scenario && row.text);
+    saveData(data);
+    renderHome();
   }
 
   function loadData() {
