@@ -238,7 +238,10 @@ button:active {
   document.getElementById('backBtn').addEventListener('click', renderHome);
   document.getElementById('loadUrlBtn').addEventListener('click', () => {
     const url = document.getElementById('csvUrlInput').value.trim();
-    if (url) loadCsvFromUrl(url);
+    if (url) {
+      loadCsvFromUrl(url);
+      document.getElementById('urlRow').style.display = 'none';
+    }
   });
   document.getElementById('showUrlToggle').addEventListener('click', () => {
     const row = document.getElementById('urlRow');
