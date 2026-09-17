@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toolkit</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f6f6f4">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --border: #e8e8e5;
+  --text: #1c1c1a;
+  --text-muted: #8f8f8a;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 20px;
+}
+
+button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 16px 2px;
+  margin-bottom: 0;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--text);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+button:active {
+  background: none;
+  opacity: 0.6;
+  transform: none;
+}
+
+#scenarioList button::after {
+  content: '\2192';
+  color: var(--text-muted);
+  margin-left: 12px;
+}
+
+.card {
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text);
+  box-shadow: none;
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+.card-detail {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+#backBtn {
+  background: none;
+  border: none;
+  border-bottom: none;
+  box-shadow: none;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  width: auto;
+  padding: 0 0 18px 0;
+  margin-bottom: 0;
+}
+
+#backBtn:active {
+  background: none;
+  opacity: 1;
+  color: var(--text);
+}
+
+.import-link {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.import-link:active {
+  color: var(--text);
+}
+
+#homeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+#homeHeader h1 {
+  margin: 0;
+}
+
+#emptyState {
+  padding: 28px 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+
+  <div id="homeView">
+    <div id="homeHeader">
+      <h1>Toolkit</h1>
+      <label for="fileInput" class="import-link">Add CSV</label>
+      <input type="file" id="fileInput" accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,application/csv" style="display:none">
+    </div>
+    <div id="scenarioList"></div>
+    <div id="emptyState" style="display:none;">
+      No data yet — import a CSV to get started.
+    </div>
+  </div>
+
+  <div id="scenarioView" style="display:none;">
+    <button id="backBtn">&larr; Back</button>
+    <h1 id="scenarioTitle"></h1>
+    <div id="cardList"></div>
+  </div>
+
+<script>
+  // ---- Data shape: array of { scenario: string, text: string, detail?: string } ----
+  // CSV columns expected: scenario,text,detail   (detail is optional — leave blank if not needed)
+
+  const STORAGE_KEY = 'toolkitData';
+  let data = loadData();
+
+  renderHome();
+
+  document.getElementById('fileInput').addEventListener('change', handleFile);
+  document.getElementById('backBtn').addEventListener('click', renderHome);
+
+  function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        // Expect each row: { scenario: '...', text: '...' }
+        data = results.data.filter(row => row.scenario && row.text);
+        saveData(data);
+        renderHome();
+      }
+    });
+  }
+
+  function loadData() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }
+
+  function saveData(d) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+  }
+
+  function getScenarios() {
+    return [...new Set(data.map(row => row.scenario))];
+  }
+
+  function renderHome() {
+    document.getElementById('scenarioView').style.display = 'none';
+    document.getElementById('homeView').style.display = 'block';
+
+    const listEl = document.getElementById('scenarioList');
+    const emptyEl = document.getElementById('emptyState');
+    listEl.innerHTML = '';
+
+    const scenarios = getScenarios();
+
+    if (scenarios.length === 0) {
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    scenarios.forEach(scenario => {
+      const btn = document.createElement('button');
+      btn.textContent = scenario;
+      btn.addEventListener('click', () => renderScenario(scenario));
+      listEl.appendChild(btn);
+    });
+  }
+
+  function renderScenario(scenario) {
+    document.getElementById('homeView').style.display = 'none';
+    document.getElementById('scenarioView').style.display = 'block';
+    document.getElementById('scenarioTitle').textContent = scenario;
+
+    const cardListEl = document.getElementById('cardList');
+    cardListEl.innerHTML = '';
+
+    data
+      .filter(row => row.scenario === scenario)
+      .forEach(row => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const main = document.createElement('div');
+        main.textContent = row.text;
+        card.appendChild(main);
+
+        if (row.detail && row.detail.trim() !== '') {
+          const detail = document.createElement('div');
+          detail.className = 'card-detail';
+          detail.textContent = row.detail;
+          card.appendChild(detail);
+        }
+
+        cardListEl.appendChild(card);
+      });
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js');
+    });
+  }
+</script>
+
+</body>
+</html>
