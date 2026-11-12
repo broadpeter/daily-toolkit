@@ -242,6 +242,21 @@ height: 28px;
   transform: rotate(45deg);
 }
 
+.subcategory-label {
+  display: block;
+  padding: 18px 2px 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  cursor: pointer;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subcategory-items {
+  display: block;
+}
+
 .url-row {
   display: flex;
   align-items: center;
@@ -351,8 +366,12 @@ height: 28px;
   </div>
 
 <script>
-  // ---- Main content CSV: scenario,text,detail ----
-  // detail is optional — leave blank if not needed.
+  // ---- Main content CSV: scenario,subcategory,text,detail ----
+  // subcategory is optional — leave blank if not nested.
+  // Each scenario becomes a button on home page.
+  // Each unique subcategory also becomes a button on home page.
+  // Clicking a scenario shows all its cards.
+  // Clicking a subcategory shows all cards tagged with that subcategory.
 
   // ---- Optional timing CSV: scenario,periods ----
   // One row per scenario (not per card). periods is semicolon-separated,
@@ -555,6 +574,11 @@ height: 28px;
     return [...new Set(data.map(row => row.scenario))];
   }
 
+  function getSubcategories() {
+    const subcats = [...new Set(data.map(row => row.subcategory).filter(s => s && s.trim() !== ''))];
+    return subcats;
+  }
+
   function getCurrentPeriod() {
     const hour = new Date().getHours();
     for (const period in TIME_PERIODS) {
@@ -593,17 +617,19 @@ height: 28px;
     listEl.innerHTML = '';
 
     const scenarios = getOrderedScenarios();
+    const subcategories = getSubcategories();
+    const allItems = [...scenarios, ...subcategories];
 
-    if (scenarios.length === 0) {
+    if (allItems.length === 0) {
       emptyEl.style.display = 'block';
       return;
     }
     emptyEl.style.display = 'none';
 
-    const pinned = scenarios.slice(0, PINNED_COUNT);
-    const more = scenarios.slice(PINNED_COUNT);
+    const pinned = allItems.slice(0, PINNED_COUNT);
+    const more = allItems.slice(PINNED_COUNT);
 
-    pinned.forEach(scenario => listEl.appendChild(makeScenarioButton(scenario)));
+    pinned.forEach(item => listEl.appendChild(makeScenarioButton(item)));
 
     if (more.length > 0) {
       const toggle = document.createElement('div');
@@ -616,22 +642,27 @@ height: 28px;
 
       const moreList = document.createElement('div');
       moreList.style.display = 'none';
-      more.forEach(scenario => moreList.appendChild(makeScenarioButton(scenario)));
+      more.forEach(item => moreList.appendChild(makeScenarioButton(item)));
       listEl.appendChild(moreList);
 
-
-toggle.addEventListener('click', () => {
-  moreList.style.display = 'block';
-  toggle.style.display = 'none';
-});
-
+      toggle.addEventListener('click', () => {
+        moreList.style.display = 'block';
+        toggle.style.display = 'none';
+      });
     }
   }
 
-  function makeScenarioButton(scenario) {
+  function makeScenarioButton(item) {
     const btn = document.createElement('button');
-    btn.textContent = scenario;
-    btn.addEventListener('click', () => renderScenario(scenario));
+    btn.textContent = item;
+    btn.addEventListener('click', () => {
+      const isSubcategory = getSubcategories().includes(item);
+      if (isSubcategory) {
+        renderSubcategory(item);
+      } else {
+        renderScenario(item);
+      }
+    });
     return btn;
   }
 
@@ -643,25 +674,44 @@ toggle.addEventListener('click', () => {
     const cardListEl = document.getElementById('cardList');
     cardListEl.innerHTML = '';
 
-    data
-      .filter(row => row.scenario === scenario)
-      .forEach(row => {
-        const card = document.createElement('div');
-        card.className = 'card';
+    const scenarioRows = data.filter(row => row.scenario === scenario);
+    
+    scenarioRows.forEach(row => {
+      cardListEl.appendChild(makeCard(row));
+    });
+  }
 
-        const main = document.createElement('div');
-        main.textContent = row.text;
-        card.appendChild(main);
+  function renderSubcategory(subcategory) {
+    document.getElementById('homeView').style.display = 'none';
+    document.getElementById('scenarioView').style.display = 'block';
+    document.getElementById('scenarioTitle').textContent = subcategory;
 
-        if (row.detail && row.detail.trim() !== '') {
-          const detail = document.createElement('div');
-          detail.className = 'card-detail';
-          detail.textContent = row.detail;
-          card.appendChild(detail);
-        }
+    const cardListEl = document.getElementById('cardList');
+    cardListEl.innerHTML = '';
 
-        cardListEl.appendChild(card);
-      });
+    const subcatRows = data.filter(row => row.subcategory === subcategory);
+    
+    subcatRows.forEach(row => {
+      cardListEl.appendChild(makeCard(row));
+    });
+  }
+
+  function makeCard(row) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const main = document.createElement('div');
+    main.textContent = row.text;
+    card.appendChild(main);
+
+    if (row.detail && row.detail.trim() !== '') {
+      const detail = document.createElement('div');
+      detail.className = 'card-detail';
+      detail.textContent = row.detail;
+      card.appendChild(detail);
+    }
+
+    return card;
   }
 
   if ('serviceWorker' in navigator) {
